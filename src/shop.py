@@ -6,10 +6,12 @@ import config as c
 class Shop:
     """La tienda donde el jugador puede comprar mejoras."""
     def __init__(self):
-        # La tienda está en el centro del mundo
         self.rect = pygame.Rect(c.WORLD_WIDTH // 2 - 50, c.WORLD_HEIGHT // 2 - 50, 100, 100)
+        
+        # --- ÍTEMS MODIFICADOS ---
         self.items = {
             "health_potion": {"cost": 15, "description": "Restaura 50 HP (H)"},
+            "hp_upgrade": {"cost": 50, "description": "Aumenta Max HP en 10 (U)"}
         }
 
     def draw(self, surface, camera):
