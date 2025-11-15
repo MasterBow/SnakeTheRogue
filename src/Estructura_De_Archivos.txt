@@ -1,0 +1,9 @@
+proyecto_snake/
+├─ main.py       (Casi vacío, solo inicia el juego)
+├─ game.py       (La clase 'Game' - el cerebro de todo)
+├─ config.py     (Todas las constantes y colores)
+├─ snake.py      (La clase 'Snake')
+├─ enemy.py      (La clase 'Enemy')
+├─ food.py       (La clase 'Food')
+├─ shop.py       (La clase 'Shop')
+└─ camera.py     (La clase 'Camera')
