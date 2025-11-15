@@ -1,166 +1,156 @@
-# 🐍 Snake The Rogue: Un Juego de Snake con Elementos Rogue-like
+**🐍 Snake The Rogue**
 
-Este documento describe la arquitectura, estructura de ficheros y el flujo del juego para un proyecto de **Snake The Rogue** implementado en Python, utilizando la librería `turtle` para la renderización.
+Juego tipo Snake desarrollado con Python y Pygame.
 
----
+Este documento describe la arquitectura, estructura de archivos y flujo interno del proyecto. El juego expande la idea clásica de Snake hacia un pequeño roguelite con mundo abierto, combate, progresión y guardado persistente.
 
-## 🏗️ Diseño General (Visión en Capas)
+Estado actual: La base modular del juego está completa. El sistema de combate, estadísticas, mundo con cámara, guardado en SQLite y un bucle de juego con lógica desacoplada del render ya funcionan correctamente.
 
-El proyecto sigue una arquitectura clara de **separación de responsabilidades** (similar a MVC, pero enfocado en capas de juego) para garantizar la modularidad y la fácil extensibilidad.
+**Características Implementadas**
 
-| Capa | Responsabilidad | Módulos Clave |
-| :--- | :--- | :--- |
-| **Core (Lógica)** | Reglas de movimiento, actualización de estado, colisiones, gestión de niveles, IA básica. | `game.py`, `collision.py`, `enemies.py` |
-| **Model (Datos)** | Almacenamiento y estado del mundo (Grid, entidades, score, vida). | `grid.py`, `snake.py`, `entity.py` |
-| **Renderer (Presentación)** | Dibuja el Grid y las entidades usando `turtle`. Maneja optimizaciones de repintado. | `renderer_turtle.py`, `ui.py` |
-| **Input / Control** | Captura de teclado y mapeo a acciones. | `input_handler.py` |
-| **Persistence / Config** | Constantes del juego y funcionalidad de guardado/carga de progreso. | `config.py`, `save_load.py` |
-| **Utils / Herramientas** | Generación de mapas, pathfinding (A* opcional), utilidades de log y pruebas. | `generator.py`, `utils.py` |
+Mundo Abierto con Cámara: La serpiente se mueve en un mundo grande (2000x2000 px). Una cámara sigue al jugador en lugar de limitar todo a una sola pantalla.
 
----
+Combate y Estadísticas: La serpiente cuenta con HP, dinero y atributos como daño y velocidad de ataque.
 
-## 📁 Estructura de Ficheros Sugerida
+Sistema de Disparo: Presiona Espacio para disparar en la dirección actual del movimiento.
 
-La estructura modular propuesta para el proyecto es la siguiente:
-```text
-rogue_snake/
-├─ src/
-│ ├─ main.py # Entrada del programa; inicia la clase Game
-│ ├─ config.py # Constantes del juego (GRID_SIZE, CELL_PIXELS, etc)
-│ ├─ game.py # Clase Game principal (bucle, estados)
-│ ├─ grid.py # Modelo Grid / Tile / Cell
-│ ├─ snake.py # Clase Snake (implementación con collections.deque)
-│ ├─ entity.py # Base Entity; clases Enemy, Food, Powerup extienden
-│ ├─ enemies.py # EnemyManager y tipos de IA
-│ ├─ generator.py # LevelGenerator (algoritmos procedurales)
-│ ├─ renderer_turtle.py # Lógica de renderizado con turtle
-│ ├─ input_handler.py # Mapeo de teclas y control
-│ ├─ collision.py # Lógica de detección y respuesta a colisiones
-│ ├─ ui.py # HUD, marcador, menús simples
-│ ├─ save_load.py # Guardado/lectura de progreso en formato JSON
-│ └─ utils.py # A*, random helpers, etc
-├─ assets/ # Recursos visuales o definiciones (opcional)
-├─ tests/ # Pruebas unitarias
-└─ README.md # Este archivo
+Enemigos con HP: Los enemigos tienen vida propia y requieren proyectiles para ser derrotados.
+
+Progresión y Tienda: Al vencer enemigos ganas dinero. Puedes comprar curaciones o mejoras permanentes.
+
+Persistencia con SQLite: El juego guarda progreso (Max HP y dinero) en rogue_snake.db.
+
+Bucle de Juego Dual:
+
+Render fluido a 60 FPS.
+
+Lógica (movimiento, colisiones) a 15 FPS.
+
+**Cómo Empezar**
+
+**Clonar el repositorio:**
 ```
----
+git clone [https://github.com/MasterBow/SnakeTheRogue.git](https://github.com/MasterBow/SnakeTheRogue.git)
+cd SnakeTheRogue
+```
 
-## ⚙️ Modelos de Datos Clave
+**Instalar dependencias:**
+```
+pip install pygame
+```
 
-### Grid
-Representa el mundo del juego.
+**Ejecutar el juego:**
+```
+python main.py
 
-* `cells[y][x]`: Contiene el estado de la celda (Enum: `EMPTY`, `WALL`, `FOOD`, etc.).
-* `occupied = set((x,y))`: Para comprobación rápida **O(1)** de disponibilidad de celdas.
+```
+**Controles**
+```
+Acción
 
-### Snake
-Representación de la serpiente.
+Tecla
 
-* Implementación: `collections.deque` de coordenadas `[(x_head,y_head), ...]`.
-* Propiedades: `direction` (enum `UP`/`DOWN`/`LEFT`/`RIGHT`).
-* Métodos: `step(grow=False)`, `change_direction(dir)`, `collides(coord)`.
+Mover la serpiente
 
-### Enemy / PowerUp
-Representaciones de las entidades dinámicas.
+Flechas
 
-* **Enemy**: `pos`, `type` (roaming, chasing), `state`, `hp`. Método clave: `decide_next_move(grid, snake_head)`.
-* **PowerUp**: `{type, duration, effect}`.
+Disparar
 
----
+Espacio
 
-## ⏳ Game Loop (Arquitectura y Flujo)
+Entrar a la tienda
 
-El bucle del juego se controlará mediante el modelo de *tick* asíncrono de `turtle` para **evitar el bucle `while True` bloqueante**.
+E (cerca de la tienda)
 
-### Pseudocódigo
+Comprar curación
 
-```python
-class Game:
-    def start(self):
-        self.state = RUNNING
-        self.schedule_tick()
+H
 
-    def schedule_tick(self):
-        # Llama a self.tick después de 'tick_ms' milisegundos
-        turtle.ontimer(self.tick, int(self.tick_ms))
+Comprar mejora permanente
 
-    def tick(self):
-        if self.state != RUNNING: 
-            return
-            
-        # 1. Lógica
-        self.update_game_logic()
-        
-        # 2. Renderizado
-        self.renderer.render_updates()
-        
-        # 3. Reprogramar
-        self.schedule_tick()
-Flujo de update_game_logic()
-Mover serpiente: snake.step().
+U
 
-Checar colisión con comida, powerups, paredes, enemigos.
+Salir de la tienda
 
-Mover enemigos (según su IA).
+ESC
+```
+**📁 Estructura de Archivos**
+```
+snake_rogue_pygame/
+├─ main.py          # Punto de entrada del juego.
+├─ game.py          # Bucle principal y lógica de orquestación.
+├─ config.py        # Constantes globales.
+├─ database.py      # Persistencia (SQLite).
+├─ snake.py         # Jugador, stats, disparos.
+├─ enemy.py         # Enemigos y sus barras de vida.
+├─ projectile.py    # Proyectiles.
+├─ camera.py        # Cámara que sigue al jugador.
+├─ food.py          # Comida (objeto pasivo).
+├─ shop.py          # Tienda y sus ítems.
+└─ rogue_snake.db   # Base de datos (generada automáticamente).
+```
 
-Generar nuevos items si es necesario.
+**Arquitectura Lógica**
 
-Checar condiciones de fin de nivel o muerte.
+main.py: Punto de entrada. Crea una instancia de Game y llama a su bucle principal.
 
-🗺️ Generación Procedural de Niveles
-La naturaleza rogue-like del juego se basará en la generación dinámica de niveles, gestionada por generator.py.
+game.py: Orquestador del juego: maneja eventos, estados, colisiones, render y lógica interna.
+```
+mientras True:
+    events()
+    update()  # Solo corre a 15 FPS
+    draw()    # Corre a 60 FPS
 
-Opciones de Algoritmos (Simplicidad → Complejidad)
-Random Walk: (Fácil) Comienza en el centro, camina al azar creando pasajes; coloca paredes alrededor.
+```
+```
+config.py: Contiene constantes: colores, tamaños, FPS y parámetros base.
 
-Rooms + Corridors (BSP): (Recomendado para un clásico rogue-like) Particiona el mapa, crea habitaciones y las conecta con corredores.
+database.py: Crea tablas y almacena max_hp y money. Carga esos datos al iniciar.
 
-Cellular Automata: Para mapas tipo cavernas/ambientación distinta.
+snake.py: Administra al jugador: movimiento, estadísticas, disparos y cooldowns.
 
-API del Generador:
+enemy.py: Enemigos con HP, dibujado y barra de vida.
 
-Python
+projectile.py: Balas que se mueven en línea recta según dirección inicial.
 
-class LevelGenerator:
-    # Retorna el Grid, los puntos de aparición y los puntos de items
-    def generate(level_number) -> Grid, spawn_points, item_spawns
-🧠 IA Enemiga
-La complejidad de la IA variará según el tipo de enemigo:
+camera.py: Convierte coordenadas del mundo a coordenadas de pantalla.
 
-Roamer: Elige dirección aleatoria; evita paredes.
+food.py: Objeto pasivo que se dibuja en pantalla según la cámara.
 
-Patrol: Sigue una lista predefinida de waypoints.
+shop.py: Área interactiva que vende mejoras y curaciones.
 
-Chaser: Si la distancia a la serpiente es menor a X, usa A* hacia la cabeza de la serpiente; si no, patrulla.
+⏳ Arquitectura del Game Loop (60 / 15 FPS)
 
-Fleeing: Huye si la serpiente es grande o tiene un powerup especial.
+El juego separa el renderizado de la lógica mediante un timestep fijo.
 
-Optimización: Calcular A* solo cada N ticks y limitar la búsqueda a un rectángulo objetivo para mejorar el rendimiento.
+Renderizado y entrada → 60 FPS
 
-🎨 Renderizado con Turtle (Optimizaciones)
-Para mitigar la lentitud inherente de turtle:
+Lógica del juego → 15 FPS
 
-Coordenadas: Usar coordenadas por celda y transformar a píxeles: pixel_x = cell_x * CELL_SIZE + offset.
+logic_timer = 0.0
+```
+```
+mientras True:
+    dt = clock.tick(60) / 1000
+    logic_timer += dt
+```
+    events()   # fluido
 
-Doble Buffer: Usar wn.tracer(0) y llamar wn.update() una sola vez por tick.
+    si logic_timer >= 1 / 15:
+        update()
+        logic_timer -= 1 / 15
 
-Repintado Selectivo: Mantener un buffer de "celdas cambiadas" y repintar solo esas celdas en cada tick.
+    draw()
+    display.flip()
+```
+```
+**🗺️ Roadmap**
 
-Reuso de Objetos: Usar turtle.Turtle() por tipo de objeto y stamp() para dibujar las celdas, reusando el objeto en lugar de crear/destruir.
+(Próximas características y mejoras)
 
-✅ Checklist de Implementación (Pasos Lógicos)
-Esqueleto Inicial: Crear la estructura de carpetas, config.py y main.py.
+**🛠️ Recursos Utilizados**
+```
+IntelliCode, Continue (Local), QwenCode 2.5 2B (local): Usados principalmente para corregir sintaxis y mejorar la estructura del código.
 
-Modelo Básico: Implementar Grid y un LevelGenerator simple (generación estática de prueba).
-
-Núcleo de Movimiento: Implementar Snake, movimiento básico, input y renderer minimal.
-
-Loop y Colisiones: Añadir comida, crecimiento, puntuación y la lógica de collision.py.
-
-Enemigos: Añadir EnemyManager con IA simple (roamer).
-
-Extensión: Añadir powerups y efectos temporales.
-
-Pulido: Optimizar renderer, añadir HUD y menús.
-
-Finalización: Implementar Tests unitarios y guardado/carga.
+Llama 3.3 7B de Chat: Consultado para dudas y sugerencias durante el desarrollo.
+```
