@@ -12,7 +12,8 @@ class Camera:
 
     def apply(self, entity_rect):
         """Convierte coordenadas del mundo a coordenadas de pantalla."""
-        return entity_rect.move(-self.camera.left, -self.camera.top)
+        # ▼▼▼ ESTA ES LA LÍNEA CORRECTA ▼▼▼
+        return entity_rect.move(self.camera.left, self.camera.top)
 
     def update(self, target_rect):
         """Actualiza la posición de la cámara para centrarse en el objetivo."""
