@@ -99,7 +99,8 @@ class Game:
             if event.type == pygame.QUIT:
                 # ¡Guardar el progreso antes de salir!
                 print("Cerrando y guardando datos...")
-                self.snake.save_stats()
+                # Solo guardamos el dinero y las stats al salir
+                self.snake.save_stats() 
                 pygame.quit()
                 sys.exit()
             
@@ -145,10 +146,20 @@ class Game:
                             self.snake.money -= item_cost
                             self.snake.max_hp += 10
                             self.snake.hp = self.snake.max_hp # Curar al máximo
+                            print(f"¡Mejora comprada! Max HP ahora es {self.snake.max_hp}")
+                            
+                            # --- ¡¡AQUÍ ESTÁ EL ARREGLO!! ---
+                            # Guardamos inmediatamente la mejora permanente en la DB.
+                            self.snake.save_stats()
+                            # --- FIN DEL ARREGLO ---
             
             elif self.state == 'game_over':
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                    self.setup_game() # Reinicia el juego
+                    # --- LÓGICA DE MUERTE (ROGUE-LIKE) ---
+                    # Al morir, *no* guardamos el dinero de la sesión.
+                    # Simplemente reiniciamos, lo que recarga
+                    # las stats permanentes (HP Max) y el dinero base.
+                    self.setup_game() 
                     self.state = 'main_menu'
 
     def update(self):
@@ -291,6 +302,8 @@ class Game:
 
         self._draw_text("Presiona ESC para salir", self.font_small, c.WHITE, c.SCREEN_WIDTH / 2, c.SCREEN_HEIGHT - 150)
 
+    # --- ¡¡AQUÍ ESTÁ EL ARREGLO!! ---
+    # Cambiado de 'self.text' a 'self, text'
     def _draw_text(self, text, font, color, x, y):
         """Función auxiliar para dibujar texto centrado en (x, y)."""
         text_surface = font.render(text, True, color)
