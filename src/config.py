@@ -1,12 +1,9 @@
 # config.py
 """
 Archivo de Configuración Central.
-
-Almacena todas las constantes, valores fijos y "números mágicos"
-del juego en un solo lugar para que sean fáciles de modificar.
 """
 
-import pygame  # <-- Asegúrate de que esta importación exista
+import pygame 
 
 # --- Dimensiones ---
 SCREEN_WIDTH = 800
@@ -15,8 +12,6 @@ WORLD_WIDTH = 2000
 WORLD_HEIGHT = 2000
 
 # --- Colores (como objetos pygame.Color) ---
-# Convertimos todas las tuplas a objetos pygame.Color para
-# poder usar métodos avanzados como .lerp()
 WHITE = pygame.Color(255, 255, 255)
 BLACK = pygame.Color(0, 0, 0)
 RED = pygame.Color(211, 47, 47)
@@ -25,13 +20,16 @@ BLUE = pygame.Color(33, 150, 243)
 YELLOW = pygame.Color(255, 235, 59)
 PURPLE = pygame.Color(156, 39, 176)
 ORANGE = pygame.Color(255, 152, 0)
+GRAY = pygame.Color(100, 100, 100)
+DARK_BLUE = pygame.Color(0, 0, 139) # Color para el Tanque
 
 # --- Colores Pre-calculados ---
-# ▼▼▼ ¡ESTA ES LA LÍNEA QUE CAUSA EL ERROR! ▼▼▼
-# Asegúrate de que esta línea exista en tu archivo.
 HP_BAR_BG = RED.lerp(BLACK, 0.5)
 
 # --- Configuración del Juego ---
 FPS = 60
 LOGIC_FPS = 15
 SNAKE_SIZE = 20
+
+# --- Configuración de Audio ---
+MASTER_VOLUME = 0.5

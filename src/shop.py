@@ -21,8 +21,26 @@ class Shop:
         
         # Diccionario de ítems (fácil de ampliar)
         self.items = {
-            "health_potion": {"cost": 15, "description": "Restaura 50 HP (H)"},
-            "hp_upgrade": {"cost": 50, "description": "Aumenta Max HP en 10 (U)"}
+            "health_potion": {
+                "key": "H",
+                "cost": 15, 
+                "description": "[H] Poción (+50 HP)"
+            },
+            "hp_upgrade": {
+                "key": "U",
+                "cost": 100, 
+                "description": "[U] Max HP (+10)"
+            },
+            "damage_upgrade": {
+                "key": "D",
+                "cost": 75, 
+                "description": "[D] Daño (+5)"
+            },
+            "speed_upgrade": {
+                "key": "A",
+                "cost": 120, 
+                "description": "[A] Vel. Ataque (Rapid Fire)"
+            }
         }
 
     def draw(self, surface, camera):
