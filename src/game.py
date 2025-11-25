@@ -1,6 +1,9 @@
 # game.py
+## Practica 5-6 terminadas
 """
 El Módulo "Game" (El Cerebro/Orquestador).
+Actualizado con mejores prácticas para carga de sprites y subsurfaces.
+Rutas ajustadas para estructura: root/src/game.py y root/assets/
 """
 
 import pygame
@@ -14,6 +17,148 @@ from camera import Camera
 from projectile import Projectile
 import database
 from menu import Menu 
+import math 
+import os # Importamos os para manejar rutas de archivos
+
+# --- CONFIGURACIÓN DE RUTAS ---
+# Calculamos la ruta absoluta a la carpeta 'assets' para evitar errores
+# dependiendo de desde dónde se ejecute el script (src o root).
+# 1. Obtenemos la ruta de este archivo (src/game.py)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# 2. Subimos un nivel para llegar a la raíz del proyecto (SnakeTheRogue-Pygame/)
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+# 3. Construimos la ruta a assets (SnakeTheRogue-Pygame/assets)
+ASSETS_DIR = os.path.join(ROOT_DIR, "assets")
+
+# --- CLASES AUXILIARES PARA EFECTOS VISUALES ---
+
+class ScrollingBackground:
+    """Maneja un fondo infinito que se desplaza."""
+    def __init__(self):
+        self.width = c.SCREEN_WIDTH
+        self.height = c.SCREEN_HEIGHT
+        self.scroll_x = 0
+        self.scroll_y = 0
+        self.speed_x = 1
+        self.speed_y = 1
+        
+        # PRÁCTICA: Usar .convert() para imágenes sin transparencia mejora el rendimiento masivamente
+        try:
+            # Buscamos en la carpeta assets usando la ruta absoluta calculada
+            image_path = os.path.join(ASSETS_DIR, "background.png")
+            self.image = pygame.image.load(image_path).convert()
+            # Ajustamos al tamaño de pantalla dinámicamente
+            self.image = pygame.transform.scale(self.image, (self.width, self.height))
+        except (FileNotFoundError, pygame.error):
+            # Fallback procedural
+            self.image = pygame.Surface((self.width, self.height))
+            self.image.fill((20, 20, 30)) 
+            for x in range(0, self.width, 40):
+                pygame.draw.line(self.image, (40, 40, 60), (x, 0), (x, self.height))
+            for y in range(0, self.height, 40):
+                pygame.draw.line(self.image, (40, 40, 60), (0, y), (self.width, y))
+
+    def update(self):
+        self.scroll_x += self.speed_x
+        self.scroll_y += self.speed_y
+        
+        if self.scroll_x >= self.width:
+            self.scroll_x = 0
+        if self.scroll_y >= self.height:
+            self.scroll_y = 0
+
+    def draw(self, surface):
+        surface.blit(self.image, (self.scroll_x - self.width, self.scroll_y - self.height))
+        surface.blit(self.image, (self.scroll_x, self.scroll_y - self.height))
+        surface.blit(self.image, (self.scroll_x - self.width, self.scroll_y))
+        surface.blit(self.image, (self.scroll_x, self.scroll_y))
+
+class SnakeAnimator:
+    """
+    Maneja la animación por Sprite Sheet.
+    APLICANDO BUENAS PRÁCTICAS: Calcular dimensiones dinámicamente y validar subsurfaces.
+    """
+    def __init__(self):
+        self.frames = []
+        self.current_frame = 0
+        self.last_update = pygame.time.get_ticks()
+        self.frame_rate = 150 
+        self.sheet = None
+        
+        try:
+            # 1. Cargar y Optimizar: .convert_alpha() es vital para sprites con transparencia
+            # Buscamos en la carpeta assets usando la ruta absoluta
+            sheet_path = os.path.join(ASSETS_DIR, "snake_sheet.png")
+            self.sheet = pygame.image.load(sheet_path).convert_alpha()
+            
+            # 2. Medir la superficie real (Dejar de adivinar tamaños)
+            sheet_width = self.sheet.get_width()
+            sheet_height = self.sheet.get_height()
+            
+            # Asumimos que la hoja tiene 2 columnas (boca cerrada, boca abierta)
+            columns = 2 
+            
+            # 3. Calcular el tamaño del frame matemáticamente
+            self.frame_width = sheet_width // columns
+            self.frame_height = sheet_height
+            
+            for i in range(columns):
+                # Calcular coordenadas
+                x = i * self.frame_width
+                y = 0
+                
+                # Crear el Rect deseado
+                frame_rect = pygame.Rect(x, y, self.frame_width, self.frame_height)
+                
+                # 4. EL GUARDIÁN: Validar antes de cortar
+                # Esto evita el crash "ValueError: subsurface rectangle outside surface area"
+                if frame_rect.right <= sheet_width and frame_rect.bottom <= sheet_height:
+                    frame = self.sheet.subsurface(frame_rect)
+                    self.frames.append(frame)
+                else:
+                    print(f"Error: El frame {i} se sale de la hoja de sprites.")
+                
+        except (FileNotFoundError, pygame.error):
+            # Fallback Procedural (si no hay imagen)
+            self._create_procedural_frames()
+
+    def _create_procedural_frames(self):
+        """Genera gráficos en memoria si falla la carga."""
+        f1 = pygame.Surface((100, 100), pygame.SRCALPHA)
+        pygame.draw.rect(f1, c.GREEN, (10, 10, 80, 80), border_radius=15)
+        pygame.draw.rect(f1, c.WHITE, (10, 10, 80, 80), 3, border_radius=15)
+        pygame.draw.circle(f1, c.WHITE, (30, 40), 12)
+        pygame.draw.circle(f1, c.WHITE, (70, 40), 12)
+        pygame.draw.circle(f1, c.BLACK, (30, 40), 5)
+        pygame.draw.circle(f1, c.BLACK, (70, 40), 5)
+        pygame.draw.line(f1, c.BLACK, (30, 70), (70, 70), 3)
+        
+        f2 = f1.copy()
+        pygame.draw.rect(f2, c.GREEN, (25, 65, 50, 20)) 
+        pygame.draw.circle(f2, c.RED, (50, 80), 10) 
+        
+        self.frames = [f1, f2]
+
+    def update(self):
+        if not self.frames: return
+        
+        now = pygame.time.get_ticks()
+        if now - self.last_update > self.frame_rate:
+            self.last_update = now
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+
+    def draw(self, surface, x, y):
+        if not self.frames: return
+
+        # Efecto de flotación
+        bob_offset = math.sin(pygame.time.get_ticks() * 0.005) * 10
+        
+        image = self.frames[self.current_frame]
+        rect = image.get_rect(center=(x, y + bob_offset))
+        surface.blit(image, rect)
+
+
+# --- CLASE PRINCIPAL ---
 
 class Game:
     def __init__(self):
@@ -30,14 +175,20 @@ class Game:
         
         self.state = 'main_menu' 
         
-        self.main_menu_obj = Menu(c.SCREEN_WIDTH // 2, 250, [
+        # --- INSTANCIAR EFECTOS VISUALES ---
+        self.background_effect = ScrollingBackground()
+        self.snake_animator = SnakeAnimator()
+
+        menu_y_start = 350 
+        
+        self.main_menu_obj = Menu(c.SCREEN_WIDTH // 2, menu_y_start, [
             "Continuar Partida", 
             "Nueva Partida", 
             "Opciones", 
             "Salir"
         ])
         
-        self.options_menu_obj = Menu(c.SCREEN_WIDTH // 2, 250, [
+        self.options_menu_obj = Menu(c.SCREEN_WIDTH // 2, menu_y_start, [
             "Volumen", 
             "Volver"
         ])
@@ -173,6 +324,11 @@ class Game:
                     self.state = 'main_menu'
 
     def update(self):
+        # Actualizamos el fondo animado SIEMPRE (para que se vea en el menú)
+        if self.state == 'main_menu' or self.state == 'options_menu':
+            self.background_effect.update()
+            self.snake_animator.update()
+
         if self.state != 'playing':
             return 
 
@@ -209,19 +365,15 @@ class Game:
         for food in self.foods[:]:
             if head.colliderect(food.rect):
                 self.foods.remove(food)
-                self.snake.grow() # Aquí se reproduce el sonido y se gana XP
+                self.snake.grow() 
                 self.foods.append(Food()) 
                 self.snake.add_score(10)
                 break
         
         for enemy in self.enemies[:]:
-            # 1. Mover al enemigo hacia el jugador
             enemy.move(head) 
-            
-            # 2. Comprobar si toca al jugador
             if head.colliderect(enemy.rect):
                 self.snake.take_damage(current_enemy_damage) 
-                # No 'break' aquí para permitir que múltiples enemigos golpeen si te rodean
         
         if not (0 <= head.x < c.WORLD_WIDTH and 0 <= head.y < c.WORLD_HEIGHT):
             self.snake.take_damage(100) 
@@ -236,15 +388,26 @@ class Game:
 
     def draw(self):
         self.screen.fill(c.BLACK)
-        
+    ## Practica 5-6
         if self.state == 'main_menu':
-            self._draw_text("SNAKE THE ROGUE", self.font_large, c.GREEN, c.SCREEN_WIDTH / 2, 100)
-            self._draw_text("Usa Flechas y Enter", self.font_small, c.GRAY, c.SCREEN_WIDTH / 2, 160)
+            # 1. Dibujar Fondo Animado
+            self.background_effect.draw(self.screen)
+            
+            # 2. Dibujar Sprite Animado (Snake)
+            self.snake_animator.draw(self.screen, c.SCREEN_WIDTH // 2, 120)
+            
+            # 3. Textos y Menú
+            self._draw_text("SNAKE THE ROGUE", self.font_large, c.GREEN, c.SCREEN_WIDTH // 2, 220)
+            self._draw_text("Usa Flechas y Enter", self.font_small, c.WHITE, c.SCREEN_WIDTH // 2, 280)
+            
             self.main_menu_obj.draw(self.screen)
 
         elif self.state == 'options_menu':
-            self._draw_text("OPCIONES", self.font_large, c.BLUE, c.SCREEN_WIDTH / 2, 100)
-            self._draw_text("Izquierda/Derecha para ajustar", self.font_small, c.GRAY, c.SCREEN_WIDTH / 2, 160)
+            # Fondo animado también en opciones
+            self.background_effect.draw(self.screen)
+            
+            self._draw_text("OPCIONES", self.font_large, c.BLUE, c.SCREEN_WIDTH // 2, 100)
+            self._draw_text("Izquierda/Derecha para ajustar", self.font_small, c.WHITE, c.SCREEN_WIDTH // 2, 160)
             self.options_menu_obj.draw(self.screen)
 
         elif self.state == 'playing':
@@ -271,15 +434,11 @@ class Game:
         self.snake.draw(self.screen, self.camera)
 
     def _draw_hud(self):
-        # --- INDICADOR DE HP Y NIVEL ---
-        # Ejemplo: "HP: 100 / 100  |  Lvl: 5"
         hp_str = f"HP: {self.snake.hp} / {self.snake.max_hp}"
         lvl_str = f"Lvl: {self.snake.level}"
-        
         full_status_str = f"{hp_str}   |   {lvl_str}"
         status_text = self.font_small.render(full_status_str, True, c.WHITE)
         self.screen.blit(status_text, (10, 10))
-        # ------------------------------
         
         money_text = self.font_small.render(f"Dinero: ${self.snake.money}", True, c.YELLOW)
         self.screen.blit(money_text, (10, 50))
