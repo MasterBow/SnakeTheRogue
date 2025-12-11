@@ -89,3 +89,44 @@ snake_rogue_pygame/
 ├─ food.py           # Entidad: Comida (XP).
 ├─ shop.py           # Entidad: Lógica de la zona de tienda.
 └─ rogue_snake.db    # Archivo de guardado (Auto-generado al jugar).
+```
+## 🏛️ Arquitectura Lógica
+El Bucle de Juego (Fixed Timestep)
+Implementamos un Fixed Timestep para desacoplar la física del renderizado. Esto asegura que la serpiente se mueva a una velocidad constante y predecible (estilo clásico) mientras que las animaciones y la cámara se renderizan suavemente.
+```
+Python
+
+while True:
+    dt = clock.tick(60) / 1000  # Delta time para renderizado
+    logic_timer += dt
+    
+    events() # Inputs (Instantáneo)
+
+    # La lógica corre a 15 ticks por segundo para control clásico
+    if logic_timer >= 1/15:
+        update()
+        logic_timer -= 1/15
+
+    draw()   # El dibujo corre a 60 FPS para suavidad visual
+    display.flip()
+```
+## Inteligencia Artificial (Vectores)
+Los enemigos no se mueven por cuadrícula (grid), sino que utilizan vectores normalizados para perseguir al jugador suavemente en el espacio de 360 grados:
+```
+Python
+
+# Lógica vectorial simplificada en enemy.py
+direccion = (posicion_jugador - posicion_enemigo).normalize()
+posicion_enemigo += direccion * velocidad_enemigo
+Audio Procedural (snake.py)
+Para mantener el repositorio ligero y sin assets binarios, el juego incluye un sintetizador básico. Genera ondas cuadradas (para disparos) y senoidales (para comer) manipulando buffers de audio en memoria cruda usando las librerías math y array de Python.
+```
+## 🛠️ Herramientas Utilizadas
+Lenguaje: Python 3.10+
+
+Librería Gráfica: Pygame-ce / Pygame 2.x
+
+Base de Datos: SQLite3 (Nativa)
+
+Asistencia de Código: IntelliCode, Qwen 2.5, Llama 3.3.
+## Desarrollado por MasterBow
